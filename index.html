@@ -2,13 +2,15 @@
 <html lang="zh-Hant">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Interactive Business Card</title>
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"
+    />
+    <title>✨</title>
     <style>
       :root {
-        color-scheme: light dark;
+        color-scheme: dark;
       }
-
       html,
       body {
         width: 100%;
@@ -16,28 +18,39 @@
         margin: 0;
         overflow: hidden;
       }
-
       body {
+        background: #191919;
+        touch-action: none;
+      }
+      body.light {
         background: #fcfcfc;
       }
-
-      @media (prefers-color-scheme: dark) {
-        body {
-          background: #191919;
-        }
-      }
-
       canvas {
         display: block;
         width: 100%;
         height: 100%;
+        touch-action: none;
       }
-
       .card-image {
         display: none;
       }
+      #theme-toggle {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 10;
+        width: 36px;
+        height: 36px;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(128, 128, 128, 0.16);
+        color: inherit;
+        font: 600 14px sans-serif;
+        cursor: pointer;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
     </style>
-
     <script type="importmap">
       {
         "imports": {
@@ -48,34 +61,23 @@
     </script>
   </head>
   <body>
-    <img
-      id="card-front"
-      class="card-image"
-      src="https://i.imgur.com/6XrvNQV.jpeg"
-      alt=""
-    />
-    <img
-      id="card-back"
-      class="card-image"
-      src="https://i.imgur.com/5j4ytzx.png"
-      alt=""
-    />
-
+    <button id="theme-toggle" aria-label="Toggle theme">O</button>
+    <img id="card-front" class="card-image" src="./assets/front.webp" alt="" />
+    <img id="card-back" class="card-image" src="./assets/back.webp" alt="" />
     <script type="module">
       import * as THREE from "three";
       import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 
       const CONFIG = {
-        width: 6.0,
+        width: 6,
         height: 3.78,
-        depth: 0.16,
-        cornerRadius: 0.13,
-        cornerSegments: 8,
+        depth: 0.01,
+        cornerRadius: 0.17,
+        cornerSegments: 10,
         dragStrength: 0.0035,
         maxAngularVelocity: 0.12,
         angularDamping: 0.84,
         dragDamping: 0.78,
-        flipThreshold: 0.58,
         snapStrength: 0.075,
         snapDamping: 0.82,
         cornerPressure: 0.085,
@@ -83,47 +85,37 @@
         maxTiltZ: 0.1,
         pressureReturnSpeed: 0.075,
         cameraDistance: 8.5,
+        cameraLerpSpeed: 0.08,
+        viewportPadding: 1.06,
         ambientIntensity: 1.5,
         keyLightIntensity: 2.6,
         rimLightIntensity: 1.8,
       };
 
       const scene = new THREE.Scene();
-
       const camera = new THREE.PerspectiveCamera(
         35,
-        window.innerWidth / window.innerHeight,
+        innerWidth / innerHeight,
         0.1,
         100,
       );
-
-      camera.position.set(0, 0, CONFIG.cameraDistance);
-
       const renderer = new THREE.WebGLRenderer({
         antialias: true,
         alpha: true,
         premultipliedAlpha: true,
       });
-
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.setSize(innerWidth, innerHeight);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.shadowMap.enabled = true;
-
       document.body.appendChild(renderer.domElement);
 
-      const ambientLight = new THREE.AmbientLight(
-        0xffffff,
-        CONFIG.ambientIntensity,
-      );
-
-      scene.add(ambientLight);
+      scene.add(new THREE.AmbientLight(0xffffff, CONFIG.ambientIntensity));
 
       const keyLight = new THREE.DirectionalLight(
         0xffffff,
         CONFIG.keyLightIntensity,
       );
-
       keyLight.position.set(4, 5, 7);
       scene.add(keyLight);
 
@@ -131,7 +123,6 @@
         0xffffff,
         CONFIG.rimLightIntensity,
       );
-
       rimLight.position.set(-4, 2, -5);
       scene.add(rimLight);
 
@@ -145,13 +136,11 @@
         CONFIG.cornerSegments,
         CONFIG.cornerRadius,
       );
-
       const bodyMaterial = new THREE.MeshStandardMaterial({
         color: 0xe8e8e8,
         roughness: 0.48,
         metalness: 0.04,
       });
-
       const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
       body.castShadow = true;
       body.receiveShadow = true;
@@ -160,34 +149,54 @@
       const frontImage = document.getElementById("card-front");
       const backImage = document.getElementById("card-back");
 
-      function waitForImage(image) {
-        return new Promise((resolve) => {
-          if (image.complete && image.naturalWidth > 0) {
-            resolve();
-            return;
-          }
-
-          image.onload = resolve;
-        });
+      function createDummyTexture(label) {
+        const canvas = document.createElement("canvas");
+        canvas.width = 1200;
+        canvas.height = 756;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#d8d8d8";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#8a8a8a";
+        ctx.font = "bold 72px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(label, canvas.width / 2, canvas.height / 2);
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        texture.minFilter = THREE.LinearMipmapLinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        return texture;
       }
 
-      function createTexture(image) {
+      function createTexture(image, label) {
+        if (!image || !image.complete || !image.naturalWidth)
+          return createDummyTexture(label);
         const texture = new THREE.Texture(image);
-
         texture.colorSpace = THREE.SRGBColorSpace;
         texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
         texture.minFilter = THREE.LinearMipmapLinearFilter;
         texture.magFilter = THREE.LinearFilter;
         texture.needsUpdate = true;
-
         return texture;
       }
 
-      await Promise.all([waitForImage(frontImage), waitForImage(backImage)]);
+      await new Promise((resolve) => {
+        let loaded = 0;
+        const done = () => {
+          loaded++;
+          if (loaded === 2) resolve();
+        };
+        frontImage.onload = done;
+        frontImage.onerror = done;
+        backImage.onload = done;
+        backImage.onerror = done;
+        if (frontImage.complete) done();
+        if (backImage.complete) done();
+      });
 
-      const frontTexture = createTexture(frontImage);
-      const backTexture = createTexture(backImage);
-
+      const frontTexture = createTexture(frontImage, "FRONT");
+      const backTexture = createTexture(backImage, "BACK");
       const faceGeometry = new THREE.PlaneGeometry(CONFIG.width, CONFIG.height);
 
       const frontMaterial = new THREE.MeshStandardMaterial({
@@ -196,24 +205,21 @@
         alphaTest: 0.001,
         side: THREE.FrontSide,
         roughness: 0.62,
-        metalness: 0.0,
+        metalness: 0,
       });
-
       const backMaterial = new THREE.MeshStandardMaterial({
         map: backTexture,
         transparent: true,
         alphaTest: 0.001,
         side: THREE.FrontSide,
         roughness: 0.62,
-        metalness: 0.0,
+        metalness: 0,
       });
 
       const front = new THREE.Mesh(faceGeometry, frontMaterial);
-
       front.position.z = CONFIG.depth / 2 + 0.003;
 
       const back = new THREE.Mesh(faceGeometry, backMaterial);
-
       back.position.z = -CONFIG.depth / 2 - 0.003;
       back.rotation.y = Math.PI;
 
@@ -222,173 +228,185 @@
       back.castShadow = true;
       back.receiveShadow = true;
 
-      card.add(front);
-      card.add(back);
+      card.add(front, back);
 
       let dragging = false;
       let snapping = false;
-
+      let rotationX = 0;
       let rotationY = 0;
-      let targetRotation = 0;
-      let angularVelocity = 0;
-
+      let targetRotationX = 0;
+      let targetRotationY = 0;
+      let angularVelocityX = 0;
+      let angularVelocityY = 0;
       let previousPointerX = 0;
-
+      let previousPointerY = 0;
       let pointerX = 0;
       let pointerY = 0;
       let pointerInside = false;
-
       let currentTiltX = 0;
       let currentTiltZ = 0;
+      let orientationRotationZ = 0;
+      let baseCameraDistance = CONFIG.cameraDistance;
+      let manualTheme = false;
+
+      function isPortrait() {
+        return innerHeight > innerWidth;
+      }
+
+      function updateOrientation() {
+        orientationRotationZ = isPortrait() ? -Math.PI / 2 : 0;
+      }
+
+      function updateResponsiveCamera() {
+        const aspect = innerWidth / innerHeight;
+        const portrait = isPortrait();
+        const visibleWidth = portrait ? CONFIG.height : CONFIG.width;
+        const visibleHeight = portrait ? CONFIG.width : CONFIG.height;
+        const verticalFov = THREE.MathUtils.degToRad(camera.fov);
+        const halfHeight = visibleHeight / 2;
+        const halfWidth = visibleWidth / 2;
+        const verticalDistance = halfHeight / Math.tan(verticalFov / 2);
+        const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * aspect);
+        const horizontalDistance = halfWidth / Math.tan(horizontalFov / 2);
+        const requiredDistance =
+          Math.max(verticalDistance, horizontalDistance) *
+          CONFIG.viewportPadding;
+        baseCameraDistance = Math.max(requiredDistance, CONFIG.cameraDistance);
+        camera.aspect = aspect;
+        camera.updateProjectionMatrix();
+      }
+
+      function updateCamera() {
+        camera.position.z +=
+          (baseCameraDistance - camera.position.z) * CONFIG.cameraLerpSpeed;
+      }
 
       function updatePointerPosition(event) {
         const rect = renderer.domElement.getBoundingClientRect();
-
         pointerX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-
         pointerY = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
-
         pointerInside = true;
+      }
+
+      function getNearestSideAngle(angle) {
+        return Math.round(angle / Math.PI) * Math.PI;
       }
 
       function startDrag(event) {
         dragging = true;
         snapping = false;
         previousPointerX = event.clientX;
-        angularVelocity = 0;
-
+        previousPointerY = event.clientY;
+        angularVelocityX = 0;
+        angularVelocityY = 0;
         updatePointerPosition(event);
-
         renderer.domElement.style.cursor = "grabbing";
-
-        if (renderer.domElement.setPointerCapture) {
+        if (renderer.domElement.setPointerCapture)
           renderer.domElement.setPointerCapture(event.pointerId);
-        }
       }
 
       function moveDrag(event) {
         updatePointerPosition(event);
-
-        if (!dragging) {
-          return;
-        }
-
+        if (!dragging) return;
         const deltaX = event.clientX - previousPointerX;
+        const deltaY = event.clientY - previousPointerY;
         previousPointerX = event.clientX;
-
-        const force = deltaX * CONFIG.dragStrength;
-
-        angularVelocity += force;
-
-        angularVelocity = THREE.MathUtils.clamp(
-          angularVelocity,
+        previousPointerY = event.clientY;
+        angularVelocityY += deltaX * CONFIG.dragStrength;
+        angularVelocityX += deltaY * CONFIG.dragStrength;
+        angularVelocityY = THREE.MathUtils.clamp(
+          angularVelocityY,
           -CONFIG.maxAngularVelocity,
           CONFIG.maxAngularVelocity,
         );
-
-        angularVelocity *= CONFIG.dragDamping;
-
-        rotationY += angularVelocity;
+        angularVelocityX = THREE.MathUtils.clamp(
+          angularVelocityX,
+          -CONFIG.maxAngularVelocity,
+          CONFIG.maxAngularVelocity,
+        );
+        angularVelocityY *= CONFIG.dragDamping;
+        angularVelocityX *= CONFIG.dragDamping;
+        rotationY += angularVelocityY;
+        rotationX += angularVelocityX;
       }
 
       function finishDrag(event) {
-        if (!dragging) {
-          return;
-        }
-
+        if (!dragging) return;
         dragging = false;
-
         renderer.domElement.style.cursor = "grab";
-
         if (
           renderer.domElement.releasePointerCapture &&
           renderer.domElement.hasPointerCapture(event.pointerId)
-        ) {
+        )
           renderer.domElement.releasePointerCapture(event.pointerId);
-        }
-
-        const normalized =
-          THREE.MathUtils.euclideanModulo(rotationY + Math.PI, Math.PI * 2) -
-          Math.PI;
-
-        const currentSide = Math.round(normalized / Math.PI);
-
-        const remainder = normalized - currentSide * Math.PI;
-
-        if (Math.abs(remainder) > Math.PI * CONFIG.flipThreshold) {
-          if (remainder > 0) {
-            targetRotation = (currentSide + 1) * Math.PI;
-          } else {
-            targetRotation = (currentSide - 1) * Math.PI;
-          }
-        } else {
-          targetRotation = currentSide * Math.PI;
-        }
-
+        targetRotationX = getNearestSideAngle(rotationX);
+        targetRotationY = getNearestSideAngle(rotationY);
         snapping = true;
       }
 
       function cancelDrag(event) {
-        if (!dragging) {
-          return;
-        }
-
-        finishDrag(event);
+        if (dragging) finishDrag(event);
       }
 
       renderer.domElement.addEventListener("pointerdown", startDrag);
-
       renderer.domElement.addEventListener("pointermove", moveDrag);
-
       renderer.domElement.addEventListener("pointerup", finishDrag);
-
       renderer.domElement.addEventListener("pointercancel", cancelDrag);
-
-      renderer.domElement.addEventListener("pointerleave", () => {
-        pointerInside = false;
-      });
-
+      renderer.domElement.addEventListener(
+        "pointerleave",
+        () => (pointerInside = false),
+      );
       renderer.domElement.style.cursor = "grab";
 
       function updatePhysics() {
-        if (dragging) {
-          return;
-        }
+        if (dragging) return;
 
         if (snapping) {
-          const difference = targetRotation - rotationY;
+          const differenceX = targetRotationX - rotationX;
+          const differenceY = targetRotationY - rotationY;
 
-          angularVelocity += difference * CONFIG.snapStrength;
+          angularVelocityX += differenceX * CONFIG.snapStrength;
+          angularVelocityY += differenceY * CONFIG.snapStrength;
 
-          angularVelocity *= CONFIG.snapDamping;
+          angularVelocityX *= CONFIG.snapDamping;
+          angularVelocityY *= CONFIG.snapDamping;
 
-          angularVelocity = THREE.MathUtils.clamp(
-            angularVelocity,
+          angularVelocityX = THREE.MathUtils.clamp(
+            angularVelocityX,
+            -CONFIG.maxAngularVelocity,
+            CONFIG.maxAngularVelocity,
+          );
+          angularVelocityY = THREE.MathUtils.clamp(
+            angularVelocityY,
             -CONFIG.maxAngularVelocity,
             CONFIG.maxAngularVelocity,
           );
 
-          rotationY += angularVelocity;
+          rotationX += angularVelocityX;
+          rotationY += angularVelocityY;
 
           if (
-            Math.abs(difference) < 0.002 &&
-            Math.abs(angularVelocity) < 0.002
+            Math.abs(differenceX) < 0.002 &&
+            Math.abs(differenceY) < 0.002 &&
+            Math.abs(angularVelocityX) < 0.002 &&
+            Math.abs(angularVelocityY) < 0.002
           ) {
-            rotationY = targetRotation;
-            angularVelocity = 0;
+            rotationX = targetRotationX;
+            rotationY = targetRotationY;
+            angularVelocityX = 0;
+            angularVelocityY = 0;
             snapping = false;
           }
-
           return;
         }
 
-        rotationY += angularVelocity;
+        rotationX += angularVelocityX;
+        rotationY += angularVelocityY;
+        angularVelocityX *= CONFIG.angularDamping;
+        angularVelocityY *= CONFIG.angularDamping;
 
-        angularVelocity *= CONFIG.angularDamping;
-
-        if (Math.abs(angularVelocity) < 0.0005) {
-          angularVelocity = 0;
-        }
+        if (Math.abs(angularVelocityX) < 0.0005) angularVelocityX = 0;
+        if (Math.abs(angularVelocityY) < 0.0005) angularVelocityY = 0;
       }
 
       function updateCornerPressure() {
@@ -398,22 +416,19 @@
 
         if (pointerInside) {
           targetTiltX = -pointerY * CONFIG.maxTiltX;
-
           targetTiltZ = pointerX * CONFIG.maxTiltZ;
-
           const distance = Math.sqrt(pointerX * pointerX + pointerY * pointerY);
-
           pressure = Math.min(distance, 1) * CONFIG.cornerPressure;
         }
 
         currentTiltX +=
           (targetTiltX - currentTiltX) * CONFIG.pressureReturnSpeed;
-
         currentTiltZ +=
           (targetTiltZ - currentTiltZ) * CONFIG.pressureReturnSpeed;
 
-        card.rotation.x = currentTiltX;
-        card.rotation.z = currentTiltZ;
+        card.rotation.x = rotationX + currentTiltX;
+        card.rotation.y = rotationY;
+        card.rotation.z = orientationRotationZ + currentTiltZ;
 
         if (pointerInside) {
           card.position.y +=
@@ -424,48 +439,47 @@
       }
 
       function updateFloating(time) {
-        if (dragging) {
-          return;
-        }
-
+        if (dragging) return;
         const floating = Math.sin(time * 0.001) * 0.012;
-
-        if (Math.abs(card.position.y) < 0.001) {
+        if (Math.abs(card.position.y) < 0.001)
           card.position.y += (floating - card.position.y) * 0.03;
-        }
       }
 
-      function updateTheme() {
-        const darkMode = window.matchMedia(
-          "(prefers-color-scheme: dark)",
-        ).matches;
-
-        document.body.style.background = darkMode ? "#191919" : "#FCFCFC";
+      function setTheme(light) {
+        document.body.classList.toggle("light", light);
+        document.documentElement.style.colorScheme = light ? "light" : "dark";
+        document.getElementById("theme-toggle").textContent = light ? "I" : "O";
       }
 
-      const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+      const themeMedia = matchMedia("(prefers-color-scheme:light)");
 
-      themeMedia.addEventListener("change", updateTheme);
+      function applySystemTheme() {
+        if (!manualTheme) setTheme(themeMedia.matches);
+      }
 
-      updateTheme();
+      themeMedia.addEventListener("change", applySystemTheme);
 
-      window.addEventListener("resize", () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
+      document.getElementById("theme-toggle").addEventListener("click", () => {
+        manualTheme = true;
+        setTheme(!document.body.classList.contains("light"));
+      });
 
-        camera.updateProjectionMatrix();
+      setTheme(themeMedia.matches);
+      updateOrientation();
+      updateResponsiveCamera();
 
-        renderer.setSize(window.innerWidth, window.innerHeight);
+      addEventListener("resize", () => {
+        renderer.setSize(innerWidth, innerHeight);
+        updateOrientation();
+        updateResponsiveCamera();
       });
 
       function animate(time) {
         requestAnimationFrame(animate);
-
         updatePhysics();
         updateCornerPressure();
         updateFloating(time);
-
-        card.rotation.y = rotationY;
-
+        updateCamera();
         renderer.render(scene, camera);
       }
 
